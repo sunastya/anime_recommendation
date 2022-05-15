@@ -1,0 +1,153 @@
+---
+title: "Анализ"
+author: "Павлова Настя"
+date: "13 05 2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(ggraph)
+library(igraph)
+load("~/shared/minor2_2020/data/good_read/books_g_4.RData")
+
+load("~/shared/minor2_2020/data/good_read/reviews_g_4.RData")
+names(goodread_reviews)
+
+
+goodread_comics$average_rating = as.numeric(goodread_comics$average_rating)
+goodread_comics$publisher = as.factor(goodread_comics$publisher)
+goodread_comics$country_code = as.factor(goodread_comics$country_code)
+goodread_comics$is_ebook = as.factor(goodread_comics$is_ebook)
+goodread_comics$num_pages = as.numeric(goodread_comics$num_pages)
+goodread_comics$language_code = as.factor(goodread_comics$language_code)
+goodread_comics$publication_year = as.numeric(goodread_comics$publication_year)
+goodread_comics$ratings_count = as.numeric(goodread_comics$ratings_count)
+goodread_comics$popular_shelves.0.name = as.factor(goodread_comics$popular_shelves.0.name)
+goodread_comics$popular_shelves.1.name = as.factor(goodread_comics$popular_shelves.1.name)
+goodread_comics$popular_shelves.2.name = as.factor(goodread_comics$popular_shelves.2.name)
+goodread_comics$popular_shelves.3.name = as.factor(goodread_comics$popular_shelves.3.name)
+
+goodread_comics <- goodread_comics %>% filter(ratings_count >= 100)
+
+summary(goodread_comics)
+summary(unique(goodread_comics$popular_shelves.3.name))
+```
+Переменные:
+
+* book_id -- id книги, на которую написан отзыв
+* review_id -- id отзыва
+* user_id -- id пользователя, написавшего отзыв
+* date_added -- дата добавления отзыва
+* rating -- оценка в отзыве
+* review_text -- текст отзыва
+
+Удаляем лишние переменные
+
+```{r}
+goodread_comics_stat = goodread_comics %>% mutate(rating_group = case_when(average_rating >= 0 & average_rating <= 1 ~ "very low", 
+                                               average_rating > 1 & average_rating <= 2 ~ "just low", 
+                                               average_rating > 2 & average_rating <= 3 ~ "ok",
+                                               average_rating > 3 & average_rating <= 3.5 ~ "satisfactory",
+                                               average_rating > 3.5 & average_rating <= 4 ~ "fine", 
+                                               average_rating > 4 & average_rating <= 5 ~ "cool", 
+                                               TRUE ~ "no info"))
+
+goodread_comics_stat$rating_group = as.factor(goodread_comics_stat$rating_group)
+
+```
+
+```{r}
+goodread_comics_stat$popular_shelves.1.name = sub("comic$", "comics", goodread_comics_stat$popular_shelves.1.name)
+goodread_comics_stat$popular_shelves.1.name = sub("cómics$", "comics", goodread_comics_stat$popular_shelves.1.name)
+goodread_comics_stat$popular_shelves.1.name = sub("comic-books$", "comics", goodread_comics_stat$popular_shelves.1.name)
+goodread_comics_stat$popular_shelves.1.name = sub("mangá$", "manga", goodread_comics_stat$popular_shelves.1.name)
+goodread_comics_stat$popular_shelves.1.name = sub("graphic-novel$", "graphic-novels", goodread_comics_stat$popular_shelves.1.name)
+goodread_comics_stat$popular_shelves.1.name = sub("sci-fi$", "science-fiction", goodread_comics_stat$popular_shelves.1.name)
+
+goodread_comics_stat$popular_shelves.2.name = sub("comic$", "comics", goodread_comics_stat$popular_shelves.2.name)
+goodread_comics_stat$popular_shelves.2.name = sub("cómics$", "comics", goodread_comics_stat$popular_shelves.2.name)
+goodread_comics_stat$popular_shelves.2.name = sub("còmics$", "comics", goodread_comics_stat$popular_shelves.2.name)
+goodread_comics_stat$popular_shelves.2.name = sub("comic-books$", "comics", goodread_comics_stat$popular_shelves.2.name)
+goodread_comics_stat$popular_shelves.2.name = sub("dc-comics$", "dc", goodread_comics_stat$popular_shelves.2.name)
+goodread_comics_stat$popular_shelves.2.name = sub("graphic-novel$", "graphic-novels", goodread_comics_stat$popular_shelves.2.name)
+goodread_comics_stat$popular_shelves.2.name = sub("historical-fiction$", "history", goodread_comics_stat$popular_shelves.2.name)
+goodread_comics_stat$popular_shelves.2.name = sub("mangá$", "manga", goodread_comics_stat$popular_shelves.2.name)
+goodread_comics_stat$popular_shelves.2.name = sub("mangas$", "manga", goodread_comics_stat$popular_shelves.2.name)
+goodread_comics_stat$popular_shelves.2.name = sub("sci-fi$", "science-fiction", goodread_comics_stat$popular_shelves.2.name)
+
+goodread_comics_stat$popular_shelves.3.name = sub("comic$", "comics", goodread_comics_stat$popular_shelves.3.name)
+goodread_comics_stat$popular_shelves.3.name = sub("cómics$", "comics", goodread_comics_stat$popular_shelves.3.name)
+goodread_comics_stat$popular_shelves.3.name = sub("comic-books$", "comics", goodread_comics_stat$popular_shelves.3.name)
+goodread_comics_stat$popular_shelves.3.name = sub("dc-comics$", "dc", goodread_comics_stat$popular_shelves.3.name)
+goodread_comics_stat$popular_shelves.3.name = sub("graphic-novel$", "graphic-novels", goodread_comics_stat$popular_shelves.3.name)
+goodread_comics_stat$popular_shelves.3.name = sub("historical-fiction$", "history", goodread_comics_stat$popular_shelves.3.name)
+goodread_comics_stat$popular_shelves.3.name = sub("mangas$", "manga", goodread_comics_stat$popular_shelves.3.name)
+goodread_comics_stat$popular_shelves.3.name = sub("sci-fi$", "science-fiction", goodread_comics_stat$popular_shelves.3.name)
+goodread_comics_stat$popular_shelves.3.name = sub("superhero$", "superheroes", goodread_comics_stat$popular_shelves.3.name)
+goodread_comics_stat$popular_shelves.3.name = sub("comics-graphic-novels$", "graphic-novels", goodread_comics_stat$popular_shelves.3.name)
+goodread_comics_stat$popular_shelves.3.name = sub("graphic-novels-comics$", "graphic-novels", goodread_comics_stat$popular_shelves.3.name)
+
+
+goodread_comics_stat$popular_shelves.1.name = as.factor(goodread_comics_stat$popular_shelves.1.name)
+goodread_comics_stat$popular_shelves.2.name = as.factor(goodread_comics_stat$popular_shelves.2.name)
+goodread_comics_stat$popular_shelves.3.name = as.factor(goodread_comics_stat$popular_shelves.3.name)
+summary(unique(goodread_comics_stat$popular_shelves.3.name))
+```
+
+```{r}
+goodread_comics_stat$val = 1
+
+goodread_comics_net_2 = goodread_comics_stat %>% pivot_wider(id_cols = book_id, names_from = popular_shelves.1.name, values_from = val, values_fill = 0)
+goodread_comics_net_3 = goodread_comics_stat %>% pivot_wider(id_cols = book_id, names_from = popular_shelves.2.name, values_from = val, values_fill = 0)
+goodread_comics_net_4 = goodread_comics_stat %>% pivot_wider(id_cols = book_id, names_from = popular_shelves.3.name, values_from = val, values_fill = 0)
+
+goodread_comics_shelves = full_join(goodread_comics_net_2, goodread_comics_net_3, goodread_comics_net_4, by = "book_id")
+```
+
+```{r}
+goodread_comics_shelves$manga = goodread_comics_shelves$manga.x + goodread_comics_shelves$manga.y
+
+goodread_comics_shelves$comics = goodread_comics_shelves$comics.x + goodread_comics_shelves$comics.y
+
+goodread_comics_shelves$'graphic-novels' = goodread_comics_shelves$'graphic-novels.x' + goodread_comics_shelves$'graphic-novels.y'
+
+goodread_comics_shelves$'currently-reading' = goodread_comics_shelves$'currently-reading.x' + goodread_comics_shelves$'currently-reading.y'
+
+goodread_comics_shelves$fantasy = goodread_comics_shelves$fantasy.x + goodread_comics_shelves$fantasy.y
+
+goodread_comics_shelves$'to-read' = goodread_comics_shelves$'to-read.x' + goodread_comics_shelves$'to-read.y'
+
+goodread_comics_shelves$'science-fiction' = goodread_comics_shelves$'science-fiction.x' + goodread_comics_shelves$'science-fiction.y'
+
+goodread_comics_shelves$fiction = goodread_comics_shelves$fiction.x + goodread_comics_shelves$fiction.y
+
+goodread_comics_shelves$bd = goodread_comics_shelves$bd.x + goodread_comics_shelves$bd.y
+
+goodread_comics_shelves$horror = goodread_comics_shelves$horror.x + goodread_comics_shelves$horror.y
+
+goodread_comics_shelves$humor = goodread_comics_shelves$humor.x + goodread_comics_shelves$humor.y
+
+goodread_comics_shelves$dc = goodread_comics_shelves$dc.x + goodread_comics_shelves$dc.y
+
+goodread_comics_shelves$marvel = goodread_comics_shelves$marvel.x + goodread_comics_shelves$marvel.y
+
+goodread_comics_shelves$favorites = goodread_comics_shelves$favorites.x + goodread_comics_shelves$favorites.y
+```
+
+```{r}
+goodread_comics_shelves = goodread_comics_shelves %>% select(-manga.x, -manga.y, -comics.x, -comics.y, -'graphic-novels.x', -'graphic-novels.y', -'currently-reading.x', -'currently-reading.y', -fantasy.x, -fantasy.y, -'to-read.x', -'to-read.y', -'science-fiction.x', -'science-fiction.y', -fiction.x, -fiction.y, -bd.x, -bd.y, -horror.x, -horror.y, -humor.x, -humor.y, -dc.x, -dc.y, -marvel.x, -marvel.y, -favorites.x, -favorites.y)
+```
+
+```{r}
+goodread_comics_shelves$comics = sub("2", "1", goodread_comics_shelves$comics)
+goodread_comics_shelves$manga = sub("2", "1", goodread_comics_shelves$manga)
+goodread_comics_shelves$'graphic-novels' = sub("2", "1", goodread_comics_shelves$'graphic-novels')
+goodread_comics_shelves$'science-fiction' = sub("2", "1", goodread_comics_shelves$'science-fiction')
+
+goodread_comics_shelves$comics = as.numeric(goodread_comics_shelves$comics)
+goodread_comics_shelves$manga = as.numeric(goodread_comics_shelves$manga)
+goodread_comics_shelves$'graphic-novels' = as.numeric(goodread_comics_shelves$'graphic-novels')
+goodread_comics_shelves$'science-fiction' = as.numeric(goodread_comics_shelves$'science-fiction')
+```
